@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -36,6 +37,13 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 func writeError(w http.ResponseWriter, err error) {
 	status := http.StatusInternalServerError
 	response := apiError{Code: "internal_error", Message: "服务处理请求时发生错误"}
+	if errors.Is(err, context.Canceled) {
+		status = 499
+		response = apiError{Code: "client_closed", Message: "请求已取消"}
+	} else if errors.Is(err, context.DeadlineExceeded) {
+		status = http.StatusRequestTimeout
+		response = apiError{Code: "request_timeout", Message: "请求超时"}
+	}
 	var input releaseInputError
 	if errors.As(err, &input) {
 		status = http.StatusBadRequest

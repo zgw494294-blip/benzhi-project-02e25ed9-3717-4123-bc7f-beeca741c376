@@ -57,6 +57,9 @@ func (s *FileStore) Execute(caseID string, expectedVersion int64, operation, ide
 }
 
 // ExecuteContext 允许请求作用域的调用方放弃尚未进入存储层的变更。
+// 当另一个写事务占用全局写协调器时，若请求上下文在等待期间被取消，
+// 本方法会及时终止并返回上下文错误，既不执行变更函数也不提交候选账本，
+// 从而避免已取消的请求改写案件数据或写入幂等记录。
 func (s *FileStore) ExecuteContext(ctx context.Context, caseID string, expectedVersion int64, operation, idempotencyKey string, now time.Time, mutate func(*casefile.Case) error) (*casefile.Case, bool, error) {
 	if ctx == nil {
 		return nil, false, fmt.Errorf("变更 context 不能为空")
@@ -64,7 +67,30 @@ func (s *FileStore) ExecuteContext(ctx context.Context, caseID string, expectedV
 	if err := ctx.Err(); err != nil {
 		return nil, false, fmt.Errorf("变更已取消: %w", err)
 	}
-	return s.Execute(caseID, expectedVersion, operation, idempotencyKey, now, mutate)
+	return s.commitContext(ctx, caseID, expectedVersion, operation, idempotencyKey, now, func(candidate *ledger) (*casefile.Case, error) {
+		current, ok := candidate.Cases[caseID]
+		if !ok {
+			return nil, ErrNotFound
+		}
+		if current.Version != expectedVersion {
+			return nil, VersionConflictError{Expected: expectedVersion, Actual: current.Version}
+		}
+		working := current.Clone()
+		originalEvents := len(working.Timeline)
+		if err := mutate(working); err != nil {
+			return nil, err
+		}
+		working.Version = current.Version + 1
+		working.UpdatedAt = now.UTC()
+		for i := originalEvents; i < len(working.Timeline); i++ {
+			working.Timeline[i].CaseVersion = working.Version
+		}
+		if err := working.ValidateSnapshot(); err != nil {
+			return nil, fmt.Errorf("变更后案件无效: %w", err)
+		}
+		candidate.Cases[caseID] = working
+		return working, nil
+	})
 }
 
 type ledgerMutation func(*ledger) (*casefile.Case, error)
@@ -91,6 +117,57 @@ func (s *FileStore) commit(caseID string, expectedVersion int64, operation, key 
 	result, err := mutate(&candidate)
 	if err != nil {
 		return nil, false, err
+	}
+	candidate.LedgerSequence++
+	candidate.Idempotency[compoundKey] = idempotencyRecord{
+		CaseID: caseID, Key: key, Operation: operation, Result: result.Clone(),
+		LedgerSequence: candidate.LedgerSequence, CreatedAt: now.UTC(),
+	}
+	if err := validateLedger(candidate); err != nil {
+		return nil, false, fmt.Errorf("候选账本无效: %w", err)
+	}
+	if err := s.writeAtomic(candidate); err != nil {
+		return nil, false, err
+	}
+	s.state = candidate
+	return result.Clone(), false, nil
+}
+
+// commitContext 与 commit 行为一致，但在抢占全局写协调器与互斥锁后
+// 会再次检查请求上下文：若等待期间上下文已被取消，则立即释放资源并返回，
+// 既不调用变更函数也不写入候选账本。
+func (s *FileStore) commitContext(ctx context.Context, caseID string, expectedVersion int64, operation, key string, now time.Time, mutate ledgerMutation) (*casefile.Case, bool, error) {
+	if strings.TrimSpace(caseID) == "" || strings.TrimSpace(operation) == "" {
+		return nil, false, fmt.Errorf("案件 ID 和操作名不能为空")
+	}
+	if strings.TrimSpace(key) == "" {
+		return nil, false, fmt.Errorf("幂等键不能为空")
+	}
+	select {
+	case s.writeSem <- struct{}{}:
+	case <-ctx.Done():
+		return nil, false, fmt.Errorf("变更已取消: %w", ctx.Err())
+	}
+	defer func() { <-s.writeSem }()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, false, fmt.Errorf("变更已取消: %w", err)
+	}
+	compoundKey := caseID + "\x00" + key
+	if record, ok := s.state.Idempotency[compoundKey]; ok {
+		if record.Operation != operation {
+			return nil, false, IdempotencyConflictError{Key: key, OriginalOperation: record.Operation, NewOperation: operation}
+		}
+		return record.Result.Clone(), true, nil
+	}
+	candidate := cloneLedger(s.state)
+	result, err := mutate(&candidate)
+	if err != nil {
+		return nil, false, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, false, fmt.Errorf("变更已取消: %w", err)
 	}
 	candidate.LedgerSequence++
 	candidate.Idempotency[compoundKey] = idempotencyRecord{
