@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"oral-history-release-desk/internal/casefile"
@@ -16,6 +17,7 @@ type Service struct {
 	store            *store.FileStore
 	policy           *policy.Engine
 	now              func() time.Time
+	downloadMu       sync.RWMutex
 	packageDownloads map[string]packageDownloadCacheEntry
 }
 

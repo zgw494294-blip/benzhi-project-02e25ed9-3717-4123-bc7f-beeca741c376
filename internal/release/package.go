@@ -223,9 +223,12 @@ type packageDownloadCacheEntry struct {
 }
 
 func (s *Service) PackageDownload(caseID string) (string, []byte, error) {
+	s.downloadMu.RLock()
 	if cached, ok := s.packageDownloads[caseID]; ok {
+		s.downloadMu.RUnlock()
 		return cached.filename, []byte(cached.payload), nil
 	}
+	s.downloadMu.RUnlock()
 	pkg, checksum, err := s.verifiedPackage(caseID)
 	if err != nil {
 		return "", nil, err
@@ -242,6 +245,11 @@ func (s *Service) PackageDownload(caseID string) (string, []byte, error) {
 		return "", nil, fmt.Errorf("编码规范化发布包下载: %w", err)
 	}
 	filename := fmt.Sprintf("oral-history-release-%s-v%d.json", safeFilenamePart(pkg.CaseID), pkg.CaseVersion)
+	s.downloadMu.Lock()
+	defer s.downloadMu.Unlock()
+	if cached, ok := s.packageDownloads[caseID]; ok {
+		return cached.filename, []byte(cached.payload), nil
+	}
 	s.packageDownloads[caseID] = packageDownloadCacheEntry{filename: filename, payload: string(data)}
 	return filename, data, nil
 }
