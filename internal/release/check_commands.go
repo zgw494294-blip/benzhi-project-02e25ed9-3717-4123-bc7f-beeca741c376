@@ -42,7 +42,7 @@ func (s *Service) RiskSummary(caseID string, filter RiskSummaryFilter) (policy.R
 		return base, nil
 	}
 	filtered := policy.BuildRiskSummary(c, policy.RiskFilter{Severity: severity, RuleCode: ruleCode, SegmentID: segmentID, Changed: filter.Changed})
-	return s.reuseRiskSummaryBuffers(c.ID, c.Version, filtered), nil
+	return filtered, nil
 }
 
 func (s *Service) cachedRiskSummary(c *casefile.Case) policy.RiskSummary {
@@ -54,22 +54,6 @@ func (s *Service) cachedRiskSummary(c *casefile.Case) policy.RiskSummary {
 	summary := policy.BuildRiskSummary(c, policy.RiskFilter{})
 	s.riskSummaries[c.ID] = riskSummaryCacheEntry{version: c.Version, summary: summary}
 	return summary
-}
-
-func (s *Service) reuseRiskSummaryBuffers(caseID string, version int64, filtered policy.RiskSummary) policy.RiskSummary {
-	s.riskMu.Lock()
-	defer s.riskMu.Unlock()
-	cached, ok := s.riskSummaries[caseID]
-	if !ok || cached.version != version {
-		return filtered
-	}
-	findings := cached.summary.Findings[:len(filtered.Findings)]
-	copy(findings, filtered.Findings)
-	filtered.Findings = findings
-	differences := cached.summary.Differences[:len(filtered.Differences)]
-	copy(differences, filtered.Differences)
-	filtered.Differences = differences
-	return filtered
 }
 
 func validFilterToken(value string) bool {
