@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"oral-history-release-desk/internal/casefile"
+	"oral-history-release-desk/internal/store"
 )
 
 type CreateCaseInput struct {
@@ -53,7 +54,7 @@ func (s *Service) CreateCase(in CreateCaseInput) (CommandResult, error) {
 	if strings.TrimSpace(in.IdempotencyKey) == "" {
 		return CommandResult{}, casefile.ValidationError{Field: "idempotencyKey", Message: "幂等键不能为空"}
 	}
-	result, replayed, err := s.store.Create(c, "case.create", in.IdempotencyKey, now)
+	result, replayed, err := s.store.Create(c, store.OperationCreateCase, in.IdempotencyKey, now)
 	return CommandResult{Case: result, Idempotent: replayed}, err
 }
 
