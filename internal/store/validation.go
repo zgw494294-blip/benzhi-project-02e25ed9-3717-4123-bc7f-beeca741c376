@@ -55,10 +55,32 @@ func validateLedger(state ledger) error {
 		if strings.TrimSpace(record.Result.ID) != record.CaseID {
 			return fmt.Errorf("幂等记录 %q 案件快照不一致", compoundKey)
 		}
+		if err := validateIdempotencyRecord(record); err != nil {
+			return fmt.Errorf("幂等记录 %q %w", compoundKey, err)
+		}
 	}
 	for sequence := int64(1); sequence <= state.LedgerSequence; sequence++ {
 		if !ledgerSequences[sequence] {
 			return fmt.Errorf("账本序列 %d 缺失", sequence)
+		}
+	}
+	return nil
+}
+
+// validateIdempotencyRecord 检查单条幂等记录的结果快照是否结构有效，
+// 且若包含发布包则摘要仍然一致。它在启动校验与同键重放路径中共同使用，
+// 防止历史快照被替换为与时间线不匹配的版本或摘要被破坏后仍被接受。
+func validateIdempotencyRecord(record idempotencyRecord) error {
+	if err := record.Result.ValidateSnapshot(); err != nil {
+		return fmt.Errorf("快照无效: %w", err)
+	}
+	if record.Result.Package != nil {
+		valid, calculated, err := casefile.VerifyPackageDigest(*record.Result.Package)
+		if err != nil {
+			return fmt.Errorf("发布包摘要计算失败: %w", err)
+		}
+		if !valid {
+			return fmt.Errorf("发布包摘要不匹配，重算为 %s", calculated)
 		}
 	}
 	return nil

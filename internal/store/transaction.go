@@ -73,6 +73,9 @@ func (s *FileStore) commit(caseID string, expectedVersion int64, operation, key 
 		if record.Operation != operation {
 			return nil, false, IdempotencyConflictError{Key: key, OriginalOperation: record.Operation, NewOperation: operation}
 		}
+		if err := validateIdempotencyRecord(record); err != nil {
+			return nil, false, fmt.Errorf("历史幂等记录 %q 已损坏: %w", compoundKey, err)
+		}
 		return record.Result.Clone(), true, nil
 	}
 	candidate := cloneLedger(s.state)
