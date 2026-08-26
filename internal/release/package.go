@@ -256,18 +256,16 @@ func (s *Service) verifiedPackage(caseID string) (casefile.ReleasePackage, Check
 }
 
 func canonicalEvidenceArrays(pkg casefile.ReleasePackage) ([]casefile.DecisionSnapshot, []casefile.ReviewRecord) {
-	decisions := append([]casefile.DecisionSnapshot(nil), pkg.DecisionSnapshot...)
+	decisions := pkg.DecisionSnapshot
 	sort.SliceStable(decisions, func(i, j int) bool {
 		if decisions[i].RuleCode != decisions[j].RuleCode {
 			return decisions[i].RuleCode < decisions[j].RuleCode
 		}
 		return decisions[i].FindingID < decisions[j].FindingID
 	})
-	reviews := append([]casefile.ReviewRecord(nil), pkg.ReviewSnapshot...)
+	reviews := pkg.ReviewSnapshot
 	for i := range reviews {
-		reviews[i].AffectedSegmentIDs = append([]string(nil), reviews[i].AffectedSegmentIDs...)
 		sort.Strings(reviews[i].AffectedSegmentIDs)
-		reviews[i].Items = append([]casefile.ReviewItem(nil), reviews[i].Items...)
 		sort.SliceStable(reviews[i].Items, func(a, b int) bool { return reviews[i].Items[a].FindingID < reviews[i].Items[b].FindingID })
 	}
 	sort.SliceStable(reviews, func(i, j int) bool {

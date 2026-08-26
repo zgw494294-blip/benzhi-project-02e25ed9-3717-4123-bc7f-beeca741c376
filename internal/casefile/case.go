@@ -187,10 +187,7 @@ func (c *Case) Clone() *Case {
 		copyCase.Preview = &preview
 	}
 	if c.Package != nil {
-		pkg := *c.Package
-		pkg.DecisionSnapshot = append([]DecisionSnapshot(nil), c.Package.DecisionSnapshot...)
-		pkg.ReviewSnapshot = append([]ReviewRecord(nil), c.Package.ReviewSnapshot...)
-		copyCase.Package = &pkg
+		copyCase.Package = c.Package
 	}
 	return &copyCase
 }
