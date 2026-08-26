@@ -217,7 +217,15 @@ type PackageDownload struct {
 	Checksum       ChecksumEvidence            `json:"checksum"`
 }
 
+type packageDownloadCacheEntry struct {
+	filename string
+	payload  string
+}
+
 func (s *Service) PackageDownload(caseID string) (string, []byte, error) {
+	if cached, ok := s.packageDownloads[caseID]; ok {
+		return cached.filename, []byte(cached.payload), nil
+	}
 	pkg, checksum, err := s.verifiedPackage(caseID)
 	if err != nil {
 		return "", nil, err
@@ -233,7 +241,9 @@ func (s *Service) PackageDownload(caseID string) (string, []byte, error) {
 	if err != nil {
 		return "", nil, fmt.Errorf("编码规范化发布包下载: %w", err)
 	}
-	return fmt.Sprintf("oral-history-release-%s-v%d.json", safeFilenamePart(pkg.CaseID), pkg.CaseVersion), data, nil
+	filename := fmt.Sprintf("oral-history-release-%s-v%d.json", safeFilenamePart(pkg.CaseID), pkg.CaseVersion)
+	s.packageDownloads[caseID] = packageDownloadCacheEntry{filename: filename, payload: string(data)}
+	return filename, data, nil
 }
 
 func (s *Service) verifiedPackage(caseID string) (casefile.ReleasePackage, ChecksumEvidence, error) {

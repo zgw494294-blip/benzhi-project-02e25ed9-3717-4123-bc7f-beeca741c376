@@ -13,13 +13,17 @@ import (
 )
 
 type Service struct {
-	store  *store.FileStore
-	policy *policy.Engine
-	now    func() time.Time
+	store            *store.FileStore
+	policy           *policy.Engine
+	now              func() time.Time
+	packageDownloads map[string]packageDownloadCacheEntry
 }
 
 func NewService(repository *store.FileStore, engine *policy.Engine) *Service {
-	return &Service{store: repository, policy: engine, now: time.Now}
+	return &Service{
+		store: repository, policy: engine, now: time.Now,
+		packageDownloads: make(map[string]packageDownloadCacheEntry),
+	}
 }
 
 func (s *Service) Get(caseID string) (*casefile.Case, error) {
