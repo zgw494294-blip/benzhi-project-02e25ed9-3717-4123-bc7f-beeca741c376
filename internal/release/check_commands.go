@@ -15,6 +15,11 @@ type RiskSummaryFilter struct {
 	Changed   *bool
 }
 
+type riskSummaryCacheEntry struct {
+	version int64
+	summary policy.RiskSummary
+}
+
 func (s *Service) RiskSummary(caseID string, filter RiskSummaryFilter) (policy.RiskSummary, error) {
 	severity := casefile.Severity(strings.TrimSpace(filter.Severity))
 	if severity != "" && severity != casefile.SeverityPass && severity != casefile.SeverityWarning && severity != casefile.SeverityBlock {
@@ -32,7 +37,39 @@ func (s *Service) RiskSummary(caseID string, filter RiskSummaryFilter) (policy.R
 	if err != nil {
 		return policy.RiskSummary{}, err
 	}
-	return policy.BuildRiskSummary(c, policy.RiskFilter{Severity: severity, RuleCode: ruleCode, SegmentID: segmentID, Changed: filter.Changed}), nil
+	base := s.cachedRiskSummary(c)
+	if severity == "" && ruleCode == "" && segmentID == "" && filter.Changed == nil {
+		return base, nil
+	}
+	filtered := policy.BuildRiskSummary(c, policy.RiskFilter{Severity: severity, RuleCode: ruleCode, SegmentID: segmentID, Changed: filter.Changed})
+	return s.reuseRiskSummaryBuffers(c.ID, c.Version, filtered), nil
+}
+
+func (s *Service) cachedRiskSummary(c *casefile.Case) policy.RiskSummary {
+	s.riskMu.Lock()
+	defer s.riskMu.Unlock()
+	if cached, ok := s.riskSummaries[c.ID]; ok && cached.version == c.Version {
+		return cached.summary
+	}
+	summary := policy.BuildRiskSummary(c, policy.RiskFilter{})
+	s.riskSummaries[c.ID] = riskSummaryCacheEntry{version: c.Version, summary: summary}
+	return summary
+}
+
+func (s *Service) reuseRiskSummaryBuffers(caseID string, version int64, filtered policy.RiskSummary) policy.RiskSummary {
+	s.riskMu.Lock()
+	defer s.riskMu.Unlock()
+	cached, ok := s.riskSummaries[caseID]
+	if !ok || cached.version != version {
+		return filtered
+	}
+	findings := cached.summary.Findings[:len(filtered.Findings)]
+	copy(findings, filtered.Findings)
+	filtered.Findings = findings
+	differences := cached.summary.Differences[:len(filtered.Differences)]
+	copy(differences, filtered.Differences)
+	filtered.Differences = differences
+	return filtered
 }
 
 func validFilterToken(value string) bool {

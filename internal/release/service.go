@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"oral-history-release-desk/internal/casefile"
@@ -13,13 +14,18 @@ import (
 )
 
 type Service struct {
-	store  *store.FileStore
-	policy *policy.Engine
-	now    func() time.Time
+	store         *store.FileStore
+	policy        *policy.Engine
+	now           func() time.Time
+	riskMu        sync.Mutex
+	riskSummaries map[string]riskSummaryCacheEntry
 }
 
 func NewService(repository *store.FileStore, engine *policy.Engine) *Service {
-	return &Service{store: repository, policy: engine, now: time.Now}
+	return &Service{
+		store: repository, policy: engine, now: time.Now,
+		riskSummaries: make(map[string]riskSummaryCacheEntry),
+	}
 }
 
 func (s *Service) Get(caseID string) (*casefile.Case, error) {
