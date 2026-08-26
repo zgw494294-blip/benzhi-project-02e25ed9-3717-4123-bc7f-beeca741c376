@@ -71,8 +71,6 @@ func (s *FileStore) load() error {
 }
 
 func (s *FileStore) Get(caseID string) (*casefile.Case, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	c, ok := s.state.Cases[caseID]
 	if !ok {
 		return nil, ErrNotFound
@@ -81,8 +79,6 @@ func (s *FileStore) Get(caseID string) (*casefile.Case, error) {
 }
 
 func (s *FileStore) List() []CaseSummary {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	result := make([]CaseSummary, 0, len(s.state.Cases))
 	for _, c := range s.state.Cases {
 		result = append(result, CaseSummary{ID: c.ID, Title: c.Title, Status: c.Status, Version: c.Version, UpdatedAt: c.UpdatedAt})
@@ -103,7 +99,5 @@ func (s *FileStore) Close() error {
 }
 
 func (s *FileStore) LedgerSequence() int64 {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
 	return s.state.LedgerSequence
 }
