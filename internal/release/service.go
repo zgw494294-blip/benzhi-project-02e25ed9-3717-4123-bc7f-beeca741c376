@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"oral-history-release-desk/internal/casefile"
@@ -13,13 +14,30 @@ import (
 )
 
 type Service struct {
-	store  *store.FileStore
-	policy *policy.Engine
-	now    func() time.Time
+	store        *store.FileStore
+	policy       *policy.Engine
+	now          func() time.Time
+	commandLocks map[string]*sync.Mutex
 }
 
 func NewService(repository *store.FileStore, engine *policy.Engine) *Service {
-	return &Service{store: repository, policy: engine, now: time.Now}
+	return &Service{
+		store: repository, policy: engine, now: time.Now,
+		commandLocks: make(map[string]*sync.Mutex),
+	}
+}
+
+func (s *Service) lockCommand(caseID string) func() {
+	lock := s.commandLocks[caseID]
+	if lock == nil {
+		lock = &sync.Mutex{}
+		s.commandLocks[caseID] = lock
+	}
+	lock.Lock()
+	return func() {
+		lock.Unlock()
+		delete(s.commandLocks, caseID)
+	}
 }
 
 func (s *Service) Get(caseID string) (*casefile.Case, error) {
@@ -67,6 +85,8 @@ func (s *Service) execute(caseID, operation string, meta CommandMeta, fn func(*c
 	if strings.TrimSpace(meta.Actor) == "" {
 		return CommandResult{}, fmt.Errorf("actor 不能为空")
 	}
+	unlock := s.lockCommand(caseID)
+	defer unlock()
 	now := s.now().UTC()
 	result, replayed, err := s.store.Execute(caseID, meta.ExpectedVersion, operation, meta.IdempotencyKey, now, func(c *casefile.Case) error {
 		return fn(c, now)

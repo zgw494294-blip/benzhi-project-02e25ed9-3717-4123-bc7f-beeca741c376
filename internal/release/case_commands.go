@@ -42,6 +42,8 @@ func (s *Service) CreateCase(in CreateCaseInput) (CommandResult, error) {
 	if err != nil {
 		return CommandResult{}, err
 	}
+	unlock := s.lockCommand(id)
+	defer unlock()
 	now := s.now().UTC()
 	c, err := casefile.NewCase(casefile.NewCaseInput{
 		ID: id, Title: in.Title, InterviewDate: in.InterviewDate, IntendedUse: in.IntendedUse,
