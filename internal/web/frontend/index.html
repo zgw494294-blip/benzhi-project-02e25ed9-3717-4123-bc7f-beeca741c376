@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>口述史开放治理台</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">ORAL HISTORY · RELEASE DESK</p>
+      <h1>口述史开放治理台</h1>
+    </div>
+    <div class="health"><span></span>本地证据链已连接</div>
+  </header>
+
+  <main class="workspace">
+    <aside class="case-rail">
+      <div class="rail-heading">
+        <div><span class="step-label">开放案</span><strong id="case-count">0</strong></div>
+        <button id="new-case-button" class="button primary">新建</button>
+      </div>
+      <div id="case-list" class="case-list" aria-live="polite"></div>
+    </aside>
+
+    <section class="desk">
+      <div id="empty-state" class="empty-state">
+        <p class="index">01</p>
+        <h2>建立一条可验证的公开路径</h2>
+        <p>从授权边界与转录片段开始。每次冻结、校核、遮蔽、复核和批准都会进入只追加时间线。</p>
+        <button id="empty-new-button" class="button primary">创建第一个开放案</button>
+      </div>
+
+      <div id="case-view" class="hidden">
+        <div class="case-titlebar">
+          <div>
+            <p id="case-kicker" class="eyebrow"></p>
+            <h2 id="case-title"></h2>
+          </div>
+          <div class="state-block">
+            <span id="case-status" class="status"></span>
+            <span id="case-version" class="version"></span>
+          </div>
+        </div>
+
+        <nav class="tabs" aria-label="案件视图">
+          <button data-tab="segments" class="tab active">片段与校核</button>
+          <button data-tab="preview" class="tab">遮蔽预览</button>
+          <button data-tab="review" class="tab">复核决定</button>
+          <button data-tab="evidence" class="tab">凭据与时间线</button>
+        </nav>
+
+        <div id="tab-segments" class="tab-panel">
+          <div id="boundary-card" class="boundary-card"></div>
+          <div class="section-heading">
+            <div><p class="index">02</p><h3>转录片段</h3></div>
+            <button id="add-segment-button" class="button secondary">批量登记</button>
+          </div>
+          <div id="segment-list" class="segment-list"></div>
+          <div class="section-heading findings-heading">
+            <div><p class="index">03</p><h3>校核发现</h3></div>
+            <div class="heading-actions"><span id="finding-summary" class="quiet"></span><button id="batch-decision-button" class="button secondary hidden">批量处置</button></div>
+          </div>
+          <div id="risk-panel" class="risk-panel"></div>
+          <div id="finding-list" class="finding-list"></div>
+        </div>
+
+        <div id="tab-preview" class="tab-panel hidden">
+          <div class="section-heading"><div><p class="index">04</p><h3>发布预览</h3></div></div>
+          <p class="hint">预览保留每个片段的上下文边界；任何后续变更都会使旧预览失效。</p>
+          <div id="preview-list" class="preview-list"></div>
+          <pre id="normalized-text" class="release-text"></pre>
+        </div>
+
+        <div id="tab-review" class="tab-panel hidden">
+          <div class="section-heading"><div><p class="index">05</p><h3>独立复核</h3></div></div>
+          <div id="review-panel"></div>
+          <div id="review-trail" class="review-trail"></div>
+        </div>
+
+        <div id="tab-evidence" class="tab-panel hidden">
+          <div class="section-heading"><div><p class="index">06</p><h3>发布凭据</h3></div></div>
+          <div id="package-panel"></div>
+          <div class="section-heading compact"><div><h3>业务时间线</h3></div></div>
+          <ol id="timeline" class="timeline"></ol>
+        </div>
+      </div>
+    </section>
+
+    <aside id="action-rail" class="action-rail hidden">
+      <p class="eyebrow">NEXT CONTROL</p>
+      <h2 id="next-title">下一控制点</h2>
+      <p id="next-description" class="hint"></p>
+      <div id="action-buttons" class="action-buttons"></div>
+      <div class="legend">
+        <p><span class="dot block"></span>阻断：必须闭合</p>
+        <p><span class="dot warning"></span>警告：复核确认</p>
+        <p><span class="dot pass"></span>通过：保留依据</p>
+      </div>
+    </aside>
+  </main>
+
+  <dialog id="form-dialog">
+    <form id="modal-form" method="dialog">
+      <div class="dialog-title"><div><p id="dialog-kicker" class="eyebrow"></p><h2 id="dialog-title"></h2></div><button type="button" id="dialog-close" class="icon-button" aria-label="关闭">×</button></div>
+      <div id="dialog-fields" class="dialog-fields"></div>
+      <div id="dialog-error" class="form-error hidden"></div>
+      <div class="dialog-actions"><button type="button" id="dialog-cancel" class="button ghost">取消</button><button type="submit" id="dialog-submit" class="button primary">保存</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>
