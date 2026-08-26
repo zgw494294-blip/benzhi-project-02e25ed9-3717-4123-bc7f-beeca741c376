@@ -1,6 +1,7 @@
 package release
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -30,6 +31,15 @@ type ReviseBoundaryInput struct {
 
 func (s *Service) ReviseBoundary(caseID string, in ReviseBoundaryInput) (CommandResult, error) {
 	return s.execute(caseID, "case.boundary.revise", in.CommandMeta, func(c *casefile.Case, now time.Time) error {
+		return c.ReviseBoundary(casefile.BoundaryInput{
+			Title: in.Title, InterviewDate: in.InterviewDate, IntendedUse: in.IntendedUse,
+			ConsentScope: in.ConsentScope, RestrictionTerms: in.RestrictionTerms,
+		}, in.Actor, now)
+	})
+}
+
+func (s *Service) ReviseBoundaryContext(ctx context.Context, caseID string, in ReviseBoundaryInput) (CommandResult, error) {
+	return s.executeContext(ctx, caseID, "case.boundary.revise", in.CommandMeta, func(c *casefile.Case, now time.Time) error {
 		return c.ReviseBoundary(casefile.BoundaryInput{
 			Title: in.Title, InterviewDate: in.InterviewDate, IntendedUse: in.IntendedUse,
 			ConsentScope: in.ConsentScope, RestrictionTerms: in.RestrictionTerms,

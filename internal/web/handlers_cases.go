@@ -54,7 +54,7 @@ func (s *Server) ReviseBoundaryHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	result, err := s.service.ReviseBoundary(id, input)
+	result, err := s.service.ReviseBoundaryContext(r.Context(), id, input)
 	if err != nil {
 		writeError(w, err)
 		return

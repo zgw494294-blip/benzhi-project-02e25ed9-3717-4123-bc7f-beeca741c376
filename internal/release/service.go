@@ -1,6 +1,7 @@
 package release
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -69,6 +70,23 @@ func (s *Service) execute(caseID, operation string, meta CommandMeta, fn func(*c
 	}
 	now := s.now().UTC()
 	result, replayed, err := s.store.Execute(caseID, meta.ExpectedVersion, operation, meta.IdempotencyKey, now, func(c *casefile.Case) error {
+		return fn(c, now)
+	})
+	return CommandResult{Case: result, Idempotent: replayed}, err
+}
+
+func (s *Service) executeContext(ctx context.Context, caseID, operation string, meta CommandMeta, fn func(*casefile.Case, time.Time) error) (CommandResult, error) {
+	if meta.ExpectedVersion < 1 {
+		return CommandResult{}, fmt.Errorf("expectedVersion 必须大于 0")
+	}
+	if strings.TrimSpace(meta.IdempotencyKey) == "" {
+		return CommandResult{}, fmt.Errorf("idempotencyKey 不能为空")
+	}
+	if strings.TrimSpace(meta.Actor) == "" {
+		return CommandResult{}, fmt.Errorf("actor 不能为空")
+	}
+	now := s.now().UTC()
+	result, replayed, err := s.store.ExecuteContext(ctx, caseID, meta.ExpectedVersion, operation, meta.IdempotencyKey, now, func(c *casefile.Case) error {
 		return fn(c, now)
 	})
 	return CommandResult{Case: result, Idempotent: replayed}, err

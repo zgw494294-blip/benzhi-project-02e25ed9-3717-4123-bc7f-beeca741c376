@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -53,6 +54,17 @@ func (s *FileStore) Execute(caseID string, expectedVersion int64, operation, ide
 		candidate.Cases[caseID] = working
 		return working, nil
 	})
+}
+
+// ExecuteContext 允许请求作用域的调用方放弃尚未进入存储层的变更。
+func (s *FileStore) ExecuteContext(ctx context.Context, caseID string, expectedVersion int64, operation, idempotencyKey string, now time.Time, mutate func(*casefile.Case) error) (*casefile.Case, bool, error) {
+	if ctx == nil {
+		return nil, false, fmt.Errorf("变更 context 不能为空")
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, false, fmt.Errorf("变更已取消: %w", err)
+	}
+	return s.Execute(caseID, expectedVersion, operation, idempotencyKey, now, mutate)
 }
 
 type ledgerMutation func(*ledger) (*casefile.Case, error)
