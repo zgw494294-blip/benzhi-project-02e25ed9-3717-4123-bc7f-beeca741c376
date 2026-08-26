@@ -99,6 +99,7 @@ func (s *FileStore) List() []CaseSummary {
 func (s *FileStore) Close() error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	close(s.writeSem)
 	return nil
 }
 
