@@ -162,12 +162,12 @@ func (s *Server) TimelineHandler(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	c, err := s.service.Get(id)
+	result, err := s.service.Timeline(id)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"caseId": id, "version": c.Version, "timeline": c.Timeline})
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) ReleasePackageHandler(w http.ResponseWriter, r *http.Request) {
